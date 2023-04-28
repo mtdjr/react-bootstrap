@@ -1,21 +1,25 @@
 import classNames from 'classnames';
 import css from 'dom-helpers/css';
-import transitionEnd from 'dom-helpers/transitionEnd';
 import PropTypes from 'prop-types';
 import React, { useMemo } from 'react';
 import Transition, {
+  TransitionStatus,
   ENTERED,
   ENTERING,
   EXITED,
   EXITING,
 } from 'react-transition-group/Transition';
-import { TransitionCallbacks } from './helpers';
+import { TransitionCallbacks } from '@restart/ui/types';
+import transitionEndListener from './transitionEndListener';
 import createChainedFunction from './createChainedFunction';
 import triggerBrowserReflow from './triggerBrowserReflow';
+import TransitionWrapper from './TransitionWrapper';
 
 type Dimension = 'height' | 'width';
 
-export interface CollapseProps extends TransitionCallbacks {
+export interface CollapseProps
+  extends TransitionCallbacks,
+    Pick<React.HTMLAttributes<HTMLElement>, 'role'> {
   className?: string;
   in?: boolean;
   mountOnEnter?: boolean;
@@ -25,7 +29,6 @@ export interface CollapseProps extends TransitionCallbacks {
   dimension?: Dimension | (() => Dimension);
   getDimensionValue?: (dimension: Dimension, element: HTMLElement) => number;
   children: React.ReactElement;
-  role?: string;
 }
 
 const MARGINS: { [d in Dimension]: string[] } = {
@@ -114,9 +117,6 @@ const propTypes = {
   /**
    * The dimension used when collapsing, or a function that returns the
    * dimension
-   *
-   * _Note: Bootstrap only partially supports 'width'!
-   * You will need to supply your own CSS animation for the `.width` CSS class._
    */
   dimension: PropTypes.oneOfType([
     PropTypes.oneOf(['height', 'width']),
@@ -138,18 +138,14 @@ const propTypes = {
    * ARIA role of collapsible element
    */
   role: PropTypes.string,
+
+  /**
+   * You must provide a single JSX child element to this component and that element cannot be a \<React.Fragment\>
+   */
+  children: PropTypes.element.isRequired,
 };
 
-const defaultProps = {
-  in: false,
-  timeout: 300,
-  mountOnEnter: false,
-  unmountOnExit: false,
-  appear: false,
-  getDimensionValue: getDefaultDimensionValue,
-};
-
-const Collapse = React.forwardRef(
+const Collapse = React.forwardRef<Transition<any>, CollapseProps>(
   (
     {
       onEnter,
@@ -160,9 +156,14 @@ const Collapse = React.forwardRef(
       className,
       children,
       dimension = 'height',
+      in: inProp = false,
+      timeout = 300,
+      mountOnEnter = false,
+      unmountOnExit = false,
+      appear = false,
       getDimensionValue = getDefaultDimensionValue,
       ...props
-    }: CollapseProps,
+    },
     ref,
   ) => {
     /* Compute dimension */
@@ -218,37 +219,40 @@ const Collapse = React.forwardRef(
     );
 
     return (
-      <Transition
-        // @ts-ignore
+      <TransitionWrapper
         ref={ref}
-        addEndListener={transitionEnd}
+        addEndListener={transitionEndListener}
         {...props}
-        aria-expanded={props.role ? props.in : null}
+        aria-expanded={props.role ? inProp : null}
         onEnter={handleEnter}
         onEntering={handleEntering}
         onEntered={handleEntered}
         onExit={handleExit}
         onExiting={handleExiting}
+        childRef={(children as any).ref}
+        in={inProp}
+        timeout={timeout}
+        mountOnEnter={mountOnEnter}
+        unmountOnExit={unmountOnExit}
+        appear={appear}
       >
-        {(state, innerProps) => {
-          return React.cloneElement(children as any, {
+        {(state: TransitionStatus, innerProps: Record<string, unknown>) =>
+          React.cloneElement(children, {
             ...innerProps,
             className: classNames(
               className,
-              (children as any).props.className,
+              children.props.className,
               collapseStyles[state],
-              computedDimension === 'width' && 'width',
+              computedDimension === 'width' && 'collapse-horizontal',
             ),
-          });
-        }}
-      </Transition>
+          })
+        }
+      </TransitionWrapper>
     );
   },
 );
 
 // @ts-ignore
 Collapse.propTypes = propTypes;
-// @ts-ignore
-Collapse.defaultProps = defaultProps;
 
 export default Collapse;

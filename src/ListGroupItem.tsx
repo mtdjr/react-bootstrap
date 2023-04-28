@@ -1,26 +1,24 @@
 import classNames from 'classnames';
-import React, { useCallback } from 'react';
+import * as React from 'react';
 import PropTypes from 'prop-types';
-
-import AbstractNavItem from './AbstractNavItem';
-import { makeEventKey } from './SelectableContext';
+import warning from 'warning';
+import useEventCallback from '@restart/hooks/useEventCallback';
+import {
+  useNavItem,
+  NavItemProps as BaseNavItemProps,
+} from '@restart/ui/NavItem';
+import { makeEventKey } from '@restart/ui/SelectableContext';
 import { useBootstrapPrefix } from './ThemeProvider';
 import { BsPrefixProps, BsPrefixRefForwardingComponent } from './helpers';
 import { Variant } from './types';
 
 export interface ListGroupItemProps
-  extends Omit<React.HTMLAttributes<HTMLElement>, 'onSelect'>,
+  extends Omit<BaseNavItemProps, 'onSelect'>,
     BsPrefixProps {
   action?: boolean;
-  active?: boolean;
-  disabled?: boolean;
-  eventKey?: string;
-  href?: string;
   onClick?: React.MouseEventHandler;
   variant?: Variant;
 }
-
-type ListGroupItem = BsPrefixRefForwardingComponent<'a', ListGroupItemProps>;
 
 const propTypes = {
   /**
@@ -29,7 +27,7 @@ const propTypes = {
   bsPrefix: PropTypes.string,
 
   /**
-   * Sets contextual classes for list item
+   * Sets contextual classes for list item.
    * @type {('primary'|'secondary'|'success'|'danger'|'warning'|'info'|'dark'|'light')}
    */
   variant: PropTypes.string,
@@ -39,96 +37,98 @@ const propTypes = {
    */
   action: PropTypes.bool,
   /**
-   * Sets list item as active
+   * Sets list item as active.
    */
   active: PropTypes.bool,
 
   /**
-   * Sets list item state as disabled
+   * Sets list item state as disabled.
    */
   disabled: PropTypes.bool,
 
-  eventKey: PropTypes.string,
+  eventKey: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
 
+  /** A callback function for when this component is clicked.  */
   onClick: PropTypes.func,
 
+  /** Providing a `href` and setting `action` to `true`, it will render the ListGroup.Item as an `<a>` element (unless `as` is provided). */
   href: PropTypes.string,
 
   /**
    * You can use a custom element type for this component. For none `action` items, items render as `li`.
-   * For actions the default is an achor or button element depending on whether a `href` is provided.
+   * For actions the default is an anchor or button element depending on whether a `href` is provided.
    *
    * @default {'div' | 'a' | 'button'}
    */
   as: PropTypes.elementType,
 };
 
-const defaultProps = {
-  variant: undefined,
-  active: false,
-  disabled: false,
-};
+const ListGroupItem: BsPrefixRefForwardingComponent<'a', ListGroupItemProps> =
+  React.forwardRef<HTMLElement, ListGroupItemProps>(
+    (
+      {
+        bsPrefix,
+        active,
+        disabled,
+        eventKey,
+        className,
+        variant,
+        action,
+        as,
+        ...props
+      },
+      ref,
+    ) => {
+      bsPrefix = useBootstrapPrefix(bsPrefix, 'list-group-item');
+      const [navItemProps, meta] = useNavItem({
+        key: makeEventKey(eventKey, props.href),
+        active,
+        ...props,
+      });
 
-const ListGroupItem: ListGroupItem = React.forwardRef(
-  (
-    {
-      bsPrefix,
-      active,
-      disabled,
-      className,
-      variant,
-      action,
-      as,
-      eventKey,
-      onClick,
-      ...props
-    },
-    ref,
-  ) => {
-    bsPrefix = useBootstrapPrefix(bsPrefix, 'list-group-item');
-
-    const handleClick = useCallback(
-      (event) => {
+      const handleClick = useEventCallback((event) => {
         if (disabled) {
           event.preventDefault();
           event.stopPropagation();
           return;
         }
 
-        if (onClick) onClick(event);
-      },
-      [disabled, onClick],
-    );
+        navItemProps.onClick(event);
+      });
 
-    if (disabled && props.tabIndex === undefined) {
-      props.tabIndex = -1;
-      props['aria-disabled'] = true;
-    }
+      if (disabled && props.tabIndex === undefined) {
+        props.tabIndex = -1;
+        props['aria-disabled'] = true;
+      }
 
-    return (
-      <AbstractNavItem
-        ref={ref}
-        {...props}
-        // TODO: Restrict eventKey to string in v5?
-        eventKey={makeEventKey(eventKey as any, props.href)}
-        // eslint-disable-next-line no-nested-ternary
-        as={as || (action ? (props.href ? 'a' : 'button') : 'div')}
-        onClick={handleClick}
-        className={classNames(
-          className,
-          bsPrefix,
-          active && 'active',
-          disabled && 'disabled',
-          variant && `${bsPrefix}-${variant}`,
-          action && `${bsPrefix}-action`,
-        )}
-      />
-    );
-  },
-);
+      // eslint-disable-next-line no-nested-ternary
+      const Component = as || (action ? (props.href ? 'a' : 'button') : 'div');
+
+      warning(
+        as || !(!action && props.href),
+        '`action=false` and `href` should not be used together.',
+      );
+
+      return (
+        <Component
+          ref={ref}
+          {...props}
+          {...navItemProps}
+          onClick={handleClick}
+          className={classNames(
+            className,
+            bsPrefix,
+            meta.isActive && 'active',
+            disabled && 'disabled',
+            variant && `${bsPrefix}-${variant}`,
+            action && `${bsPrefix}-action`,
+          )}
+        />
+      );
+    },
+  );
 
 ListGroupItem.propTypes = propTypes;
-ListGroupItem.defaultProps = defaultProps;
 ListGroupItem.displayName = 'ListGroupItem';
 
 export default ListGroupItem;

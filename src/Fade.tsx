@@ -1,13 +1,16 @@
 import classNames from 'classnames';
-import transitionEnd from 'dom-helpers/transitionEnd';
 import PropTypes from 'prop-types';
-import React, { useCallback } from 'react';
+import * as React from 'react';
+import { useCallback } from 'react';
 import Transition, {
+  TransitionStatus,
   ENTERED,
   ENTERING,
 } from 'react-transition-group/Transition';
-import { TransitionCallbacks } from './helpers';
+import { TransitionCallbacks } from '@restart/ui/types';
+import transitionEndListener from './transitionEndListener';
 import triggerBrowserReflow from './triggerBrowserReflow';
+import TransitionWrapper from './TransitionWrapper';
 
 export interface FadeProps extends TransitionCallbacks {
   className?: string;
@@ -17,6 +20,7 @@ export interface FadeProps extends TransitionCallbacks {
   appear?: boolean;
   timeout?: number;
   children: React.ReactElement;
+  transitionClasses?: Record<string, string>;
 }
 
 const propTypes = {
@@ -72,14 +76,17 @@ const propTypes = {
    * Callback fired after the component has faded out
    */
   onExited: PropTypes.func,
-};
 
-const defaultProps = {
-  in: false,
-  timeout: 300,
-  mountOnEnter: false,
-  unmountOnExit: false,
-  appear: false,
+  /**
+   * You must provide a single JSX child element to this component and that element cannot be a \<React.Fragment\>
+   */
+  children: PropTypes.element.isRequired,
+
+  /**
+   * Applies additional specified classes during the transition. Takes an object
+   * where the keys correspond to the Transition status
+   */
+  transitionClasses: PropTypes.object,
 };
 
 const fadeStyles = {
@@ -88,23 +95,33 @@ const fadeStyles = {
 };
 
 const Fade = React.forwardRef<Transition<any>, FadeProps>(
-  ({ className, children, ...props }, ref) => {
+  ({ className, children, transitionClasses = {}, onEnter, ...rest }, ref) => {
+    const props = {
+      in: false,
+      timeout: 300,
+      mountOnEnter: false,
+      unmountOnExit: false,
+      appear: false,
+      ...rest,
+    };
+
     const handleEnter = useCallback(
-      (node) => {
+      (node, isAppearing) => {
         triggerBrowserReflow(node);
-        if (props.onEnter) props.onEnter(node);
+        onEnter?.(node, isAppearing);
       },
-      [props],
+      [onEnter],
     );
 
     return (
-      <Transition
+      <TransitionWrapper
         ref={ref}
-        addEndListener={transitionEnd}
+        addEndListener={transitionEndListener}
         {...props}
         onEnter={handleEnter}
+        childRef={(children as any).ref}
       >
-        {(status, innerProps) =>
+        {(status: TransitionStatus, innerProps: Record<string, unknown>) =>
           React.cloneElement(children, {
             ...innerProps,
             className: classNames(
@@ -112,16 +129,16 @@ const Fade = React.forwardRef<Transition<any>, FadeProps>(
               className,
               children.props.className,
               fadeStyles[status],
+              transitionClasses[status],
             ),
           })
         }
-      </Transition>
+      </TransitionWrapper>
     );
   },
 );
 
 Fade.propTypes = propTypes as any;
-Fade.defaultProps = defaultProps;
 Fade.displayName = 'Fade';
 
 export default Fade;

@@ -1,21 +1,18 @@
 import classNames from 'classnames';
-import React, { useContext } from 'react';
+import * as React from 'react';
+import { useContext } from 'react';
 import PropTypes from 'prop-types';
 import useEventCallback from '@restart/hooks/useEventCallback';
 
 import { useBootstrapPrefix } from './ThemeProvider';
 import NavbarContext from './NavbarContext';
-import {
-  BsPrefixPropsWithChildren,
-  BsPrefixRefForwardingComponent,
-} from './helpers';
+import { BsPrefixProps, BsPrefixRefForwardingComponent } from './helpers';
 
-export interface NavbarToggleProps extends BsPrefixPropsWithChildren {
+export interface NavbarToggleProps
+  extends BsPrefixProps,
+    React.HTMLAttributes<HTMLElement> {
   label?: string;
-  onClick?: React.MouseEventHandler;
 }
-
-type NavbarToggle = BsPrefixRefForwardingComponent<'button', NavbarToggleProps>;
 
 const propTypes = {
   /** @default 'navbar-toggler' */
@@ -35,22 +32,21 @@ const propTypes = {
   as: PropTypes.elementType,
 };
 
-const defaultProps = {
-  label: 'Toggle navigation',
-};
-
-const NavbarToggle: NavbarToggle = React.forwardRef(
+const NavbarToggle: BsPrefixRefForwardingComponent<
+  'button',
+  NavbarToggleProps
+> = React.forwardRef<HTMLElement, NavbarToggleProps>(
   (
     {
       bsPrefix,
       className,
       children,
-      label,
+      label = 'Toggle navigation',
       // Need to define the default "as" during prop destructuring to be compatible with styled-components github.com/react-bootstrap/react-bootstrap/issues/3595
       as: Component = 'button',
       onClick,
       ...props
-    }: NavbarToggleProps,
+    },
     ref,
   ) => {
     bsPrefix = useBootstrapPrefix(bsPrefix, 'navbar-toggler');
@@ -82,6 +78,5 @@ const NavbarToggle: NavbarToggle = React.forwardRef(
 
 NavbarToggle.displayName = 'NavbarToggle';
 NavbarToggle.propTypes = propTypes;
-NavbarToggle.defaultProps = defaultProps;
 
 export default NavbarToggle;

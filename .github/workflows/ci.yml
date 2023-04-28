@@ -4,10 +4,15 @@ on:
     branches:
       - master
       - bs3-dev
+      - bs4-dev
   pull_request:
     branches:
       - master
       - bs3-dev
+      - bs4-dev
+permissions:
+  contents: read
+
 jobs:
   ci:
     name: CI
@@ -18,11 +23,12 @@ jobs:
         os: [ubuntu-latest, windows-latest, macOS-latest]
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Setup Node.js environment
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v3
         with:
-          node-version: 12.x
+          node-version: 16.x
+          cache: yarn
       - name: Update Brew (macOS)
         if: matrix.os == 'macOS-latest'
         run: brew update
@@ -32,13 +38,18 @@ jobs:
       - name: Install Firefox (macOS)
         if: matrix.os == 'macOS-latest' && matrix.browser == 'FirefoxHeadless'
         run: brew install --cask firefox
+      - name: Install Firefox (ubuntu)
+        if: matrix.os == 'ubuntu-latest' && matrix.browser == 'FirefoxHeadless'
+        run: sudo snap remove firefox && sudo add-apt-repository ppa:mozillateam/ppa && sudo apt install --target-release 'o=LP-PPA-mozillateam' firefox
       - name: Install Dependencies
         run: yarn bootstrap
+        env:
+          YARN_CACHE_FOLDER: .cache/yarn
       - name: Run Tests
         run: yarn test
         env:
           BROWSER: ${{ matrix.browser }}
       - name: Codecov
-        uses: codecov/codecov-action@v1
+        uses: codecov/codecov-action@v3
       - name: Build Project
         run: yarn build

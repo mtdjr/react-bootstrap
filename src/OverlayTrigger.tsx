@@ -1,11 +1,13 @@
 import contains from 'dom-helpers/contains';
 import PropTypes from 'prop-types';
-import React, { cloneElement, useCallback, useRef } from 'react';
+import * as React from 'react';
+import { cloneElement, useCallback, useRef } from 'react';
 import useTimeout from '@restart/hooks/useTimeout';
-import safeFindDOMNode from 'react-overlays/safeFindDOMNode';
 import warning from 'warning';
 import { useUncontrolledProp } from 'uncontrollable';
+import useMergedRefs from '@restart/hooks/useMergedRefs';
 import Overlay, { OverlayChildren, OverlayProps } from './Overlay';
+import safeFindDOMNode from './safeFindDOMNode';
 
 export type OverlayTriggerType = 'hover' | 'click' | 'focus';
 
@@ -36,12 +38,6 @@ export interface OverlayTriggerProps
   onHide?: never;
 }
 
-class RefHolder extends React.Component {
-  render() {
-    return this.props.children;
-  }
-}
-
 function normalizeDelay(delay?: OverlayDelay) {
   return delay && typeof delay === 'object'
     ? delay
@@ -56,6 +52,7 @@ function normalizeDelay(delay?: OverlayDelay) {
 // for cases when the trigger is disabled and mouseOut/Over can cause flicker
 // moving from one child element to another.
 function handleMouseOverOut(
+  // eslint-disable-next-line @typescript-eslint/no-shadow
   handler: (...args: [React.MouseEvent, ...any[]]) => any,
   args: [React.MouseEvent, ...any[]],
   relatedNative: 'fromElement' | 'toElement',
@@ -76,6 +73,8 @@ const propTypes = {
 
   /**
    * Specify which action or actions trigger Overlay visibility
+   *
+   * The `click` trigger ignores the configured `delay`.
    *
    * @type {'hover' | 'click' |'focus' | Array<'hover' | 'click' |'focus'>}
    */
@@ -165,13 +164,8 @@ const propTypes = {
   ]),
 };
 
-const defaultProps = {
-  defaultShow: false,
-  trigger: ['hover', 'focus'],
-};
-
 function OverlayTrigger({
-  trigger,
+  trigger = ['hover', 'focus'],
   overlay,
   children,
   popperConfig = {},
@@ -186,6 +180,10 @@ function OverlayTrigger({
   ...props
 }: OverlayTriggerProps) {
   const triggerNodeRef = useRef(null);
+  const mergedRef = useMergedRefs<unknown>(
+    triggerNodeRef,
+    (children as any).ref,
+  );
   const timeout = useTimeout();
   const hoverStateRef = useRef<string>('');
 
@@ -198,10 +196,9 @@ function OverlayTrigger({
       ? React.Children.only(children).props
       : ({} as any);
 
-  const getTarget = useCallback(
-    () => safeFindDOMNode(triggerNodeRef.current),
-    [],
-  );
+  const attachRef = (r: React.Component | Element | null | undefined) => {
+    mergedRef(safeFindDOMNode(r));
+  };
 
   const handleShow = useCallback(() => {
     timeout.clear();
@@ -250,7 +247,7 @@ function OverlayTrigger({
   const handleClick = useCallback(
     (...args: any[]) => {
       setShow(!show);
-      if (onClick) onClick(...args);
+      onClick?.(...args);
     },
     [onClick, setShow, show],
   );
@@ -270,7 +267,9 @@ function OverlayTrigger({
   );
 
   const triggers: string[] = trigger == null ? [] : [].concat(trigger as any);
-  const triggerProps: any = {};
+  const triggerProps: any = {
+    ref: attachRef,
+  };
 
   if (triggers.indexOf('click') !== -1) {
     triggerProps.onClick = handleClick;
@@ -292,13 +291,9 @@ function OverlayTrigger({
 
   return (
     <>
-      {typeof children === 'function' ? (
-        children({ ...triggerProps, ref: triggerNodeRef })
-      ) : (
-        <RefHolder ref={triggerNodeRef}>
-          {cloneElement(children as any, triggerProps)}
-        </RefHolder>
-      )}
+      {typeof children === 'function'
+        ? children(triggerProps)
+        : cloneElement(children, triggerProps)}
       <Overlay
         {...props}
         show={show}
@@ -306,7 +301,7 @@ function OverlayTrigger({
         flip={flip}
         placement={placement}
         popperConfig={popperConfig}
-        target={getTarget as any}
+        target={triggerNodeRef.current}
       >
         {overlay}
       </Overlay>
@@ -315,6 +310,5 @@ function OverlayTrigger({
 }
 
 OverlayTrigger.propTypes = propTypes;
-OverlayTrigger.defaultProps = defaultProps;
 
 export default OverlayTrigger;

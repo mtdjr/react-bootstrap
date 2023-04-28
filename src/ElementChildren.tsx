@@ -1,4 +1,4 @@
-import React from 'react';
+import * as React from 'react';
 
 /**
  * Iterates through children that are typically specified as `props.children`,
@@ -35,4 +35,17 @@ function forEach<P = any>(
   });
 }
 
-export { map, forEach };
+/**
+ * Finds whether a component's `children` prop includes a React element of the
+ * specified type.
+ */
+function hasChildOfType<P = any>(
+  children: React.ReactNode,
+  type: string | React.JSXElementConstructor<P>,
+): boolean {
+  return React.Children.toArray(children).some(
+    (child) => React.isValidElement(child) && child.type === type,
+  );
+}
+
+export { map, forEach, hasChildOfType };

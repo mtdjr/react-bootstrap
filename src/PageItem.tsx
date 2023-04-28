@@ -1,24 +1,19 @@
 /* eslint-disable react/no-multi-comp */
 import classNames from 'classnames';
 import PropTypes from 'prop-types';
-import React, { ReactNode } from 'react';
-import {
-  BsPrefixPropsWithChildren,
-  BsPrefixRefForwardingComponent,
-} from './helpers';
-
-import SafeAnchor from './SafeAnchor';
+import * as React from 'react';
+import { ReactNode } from 'react';
+import Anchor from '@restart/ui/Anchor';
+import { BsPrefixProps, BsPrefixRefForwardingComponent } from './helpers';
 
 export interface PageItemProps
   extends React.HTMLAttributes<HTMLElement>,
-    BsPrefixPropsWithChildren {
+    BsPrefixProps {
   disabled?: boolean;
   active?: boolean;
   activeLabel?: string;
   href?: string;
 }
-
-type PageItem = BsPrefixRefForwardingComponent<'li', PageItemProps>;
 
 const propTypes = {
   /** Disables the PageItem */
@@ -27,65 +22,62 @@ const propTypes = {
   /** Styles PageItem as active, and renders a `<span>` instead of an `<a>`. */
   active: PropTypes.bool,
 
-  /** An accessible label indicating the active state.. */
+  /** An accessible label indicating the active state. */
   activeLabel: PropTypes.string,
 
-  /** A callback function for when this component is clicked */
+  /** The HTML href attribute for the `PageItem`. */
+  href: PropTypes.string,
+
+  /** A callback function for when this component is clicked. */
   onClick: PropTypes.func,
 };
 
-const defaultProps = {
-  active: false,
-  disabled: false,
-  activeLabel: '(current)',
-};
-
-const PageItem: PageItem = React.forwardRef<HTMLLIElement, PageItemProps>(
-  (
-    {
-      active,
-      disabled,
-      className,
-      style,
-      activeLabel,
-      children,
-      ...props
-    }: PageItemProps,
-    ref,
-  ) => {
-    const Component = active || disabled ? 'span' : SafeAnchor;
-    return (
-      <li
-        ref={ref}
-        style={style}
-        className={classNames(className, 'page-item', { active, disabled })}
-      >
-        <Component className="page-link" disabled={disabled} {...props}>
-          {children}
-          {active && activeLabel && (
-            <span className="sr-only">{activeLabel}</span>
-          )}
-        </Component>
-      </li>
-    );
-  },
-);
+const PageItem: BsPrefixRefForwardingComponent<'li', PageItemProps> =
+  React.forwardRef<HTMLLIElement, PageItemProps>(
+    (
+      {
+        active = false,
+        disabled = false,
+        className,
+        style,
+        activeLabel = '(current)',
+        children,
+        ...props
+      }: PageItemProps,
+      ref,
+    ) => {
+      const Component = active || disabled ? 'span' : Anchor;
+      return (
+        <li
+          ref={ref}
+          style={style}
+          className={classNames(className, 'page-item', { active, disabled })}
+        >
+          <Component className="page-link" {...props}>
+            {children}
+            {active && activeLabel && (
+              <span className="visually-hidden">{activeLabel}</span>
+            )}
+          </Component>
+        </li>
+      );
+    },
+  );
 
 PageItem.propTypes = propTypes;
-PageItem.defaultProps = defaultProps;
 PageItem.displayName = 'PageItem';
 
 export default PageItem;
 
 function createButton(name: string, defaultValue: ReactNode, label = name) {
-  function Button({ children, ...props }: PageItemProps) {
-    return (
-      <PageItem {...props}>
+  const Button = React.forwardRef(
+    ({ children, ...props }: PageItemProps, ref) => (
+      <PageItem {...props} ref={ref}>
         <span aria-hidden="true">{children || defaultValue}</span>
-        <span className="sr-only">{label}</span>
+        <span className="visually-hidden">{label}</span>
       </PageItem>
-    );
-  }
+    ),
+  );
 
   Button.displayName = name;
 

@@ -1,28 +1,22 @@
-import React from 'react';
+import * as React from 'react';
 import PropTypes from 'prop-types';
 
-import requiredForA11y from 'prop-types-extra/lib/isRequiredForA11y';
 import { useUncontrolled } from 'uncontrollable';
-
-import Nav from './Nav';
+import BaseTabs, { TabsProps as BaseTabsProps } from '@restart/ui/Tabs';
+import Nav, { NavProps } from './Nav';
 import NavLink from './NavLink';
 import NavItem from './NavItem';
-import TabContainer from './TabContainer';
 import TabContent from './TabContent';
 import TabPane from './TabPane';
-
 import { forEach, map } from './ElementChildren';
-import { SelectCallback, TransitionType } from './helpers';
+import getTabTransitionComponent from './getTabTransitionComponent';
+import { TransitionType } from './helpers';
 
-export interface TabsProps extends React.PropsWithChildren<unknown> {
-  activeKey?: unknown;
-  defaultActiveKey?: unknown;
-  onSelect?: SelectCallback;
-  variant?: 'tabs' | 'pills';
+export interface TabsProps
+  extends Omit<BaseTabsProps, 'transition'>,
+    Omit<React.HTMLAttributes<HTMLElement>, 'onSelect'>,
+    NavProps {
   transition?: TransitionType;
-  id?: string;
-  mountOnEnter?: boolean;
-  unmountOnExit?: boolean;
 }
 
 const propTypes = {
@@ -31,9 +25,10 @@ const propTypes = {
    *
    * @controllable onSelect
    */
-  activeKey: PropTypes.any,
+  activeKey: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+
   /** The default active key that is selected on start */
-  defaultActiveKey: PropTypes.any,
+  defaultActiveKey: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
 
   /**
    * Navigation style
@@ -43,7 +38,8 @@ const propTypes = {
   variant: PropTypes.string,
 
   /**
-   * Sets a default animation strategy for all children `<TabPane>`s.
+   * Sets a default animation strategy for all children `<TabPane>`s.<tbcont
+   *
    * Defaults to `<Fade>` animation, else use `false` to disable or a
    * react-transition-group `<Transition/>` component.
    *
@@ -61,7 +57,7 @@ const propTypes = {
    *
    * @type {string}
    */
-  id: requiredForA11y(PropTypes.string),
+  id: PropTypes.string,
 
   /**
    * Callback fired when a Tab is selected.
@@ -86,12 +82,16 @@ const propTypes = {
    * Unmount tabs (remove it from the DOM) when it is no longer visible
    */
   unmountOnExit: PropTypes.bool,
-};
 
-const defaultProps = {
-  variant: 'tabs',
-  mountOnEnter: false,
-  unmountOnExit: false,
+  /**
+   * Have all `Tabs`s proportionately fill all available width.
+   */
+  fill: PropTypes.bool,
+
+  /**
+   * Have all `Tab`s evenly fill all available width.
+   */
+  justify: PropTypes.bool,
 };
 
 function getDefaultActiveKey(children) {
@@ -106,20 +106,24 @@ function getDefaultActiveKey(children) {
 }
 
 function renderTab(child) {
-  const { title, eventKey, disabled, tabClassName, id } = child.props;
+  const { title, eventKey, disabled, tabClassName, tabAttrs, id } = child.props;
   if (title == null) {
     return null;
   }
 
   return (
-    <NavItem
-      as={NavLink}
-      eventKey={eventKey}
-      disabled={disabled}
-      id={id}
-      className={tabClassName}
-    >
-      {title}
+    <NavItem as="li" role="presentation">
+      <NavLink
+        as="button"
+        type="button"
+        eventKey={eventKey}
+        disabled={disabled}
+        id={id}
+        className={tabClassName}
+        {...tabAttrs}
+      >
+        {title}
+      </NavLink>
     </NavItem>
   );
 }
@@ -129,8 +133,9 @@ const Tabs = (props: TabsProps) => {
     id,
     onSelect,
     transition,
-    mountOnEnter,
-    unmountOnExit,
+    mountOnEnter = false,
+    unmountOnExit = false,
+    variant = 'tabs',
     children,
     activeKey = getDefaultActiveKey(children),
     ...controlledProps
@@ -139,15 +144,15 @@ const Tabs = (props: TabsProps) => {
   });
 
   return (
-    <TabContainer
+    <BaseTabs
       id={id}
       activeKey={activeKey}
       onSelect={onSelect}
-      transition={transition}
+      transition={getTabTransitionComponent(transition)}
       mountOnEnter={mountOnEnter}
       unmountOnExit={unmountOnExit}
     >
-      <Nav {...controlledProps} role="tablist" as="nav">
+      <Nav {...controlledProps} role="tablist" as="ul" variant={variant}>
         {map(children, renderTab)}
       </Nav>
 
@@ -158,16 +163,16 @@ const Tabs = (props: TabsProps) => {
           delete childProps.title;
           delete childProps.disabled;
           delete childProps.tabClassName;
+          delete childProps.tabAttrs;
 
           return <TabPane {...childProps} />;
         })}
       </TabContent>
-    </TabContainer>
+    </BaseTabs>
   );
 };
 
-Tabs.propTypes = propTypes as any;
-Tabs.defaultProps = defaultProps as any;
+Tabs.propTypes = propTypes;
 Tabs.displayName = 'Tabs';
 
 export default Tabs;

@@ -1,15 +1,14 @@
 import classNames from 'classnames';
-import React from 'react';
+import * as React from 'react';
 import PropTypes from 'prop-types';
 import { useBootstrapPrefix } from './ThemeProvider';
 
-import {
-  BsPrefixAndClassNameOnlyProps,
-  BsPrefixRefForwardingComponent,
-} from './helpers';
+import { BsPrefixOnlyProps } from './helpers';
 
-export interface TableProps extends BsPrefixAndClassNameOnlyProps {
-  striped?: boolean;
+export interface TableProps
+  extends BsPrefixOnlyProps,
+    React.TableHTMLAttributes<HTMLTableElement> {
+  striped?: boolean | string;
   bordered?: boolean;
   borderless?: boolean;
   hover?: boolean;
@@ -17,8 +16,6 @@ export interface TableProps extends BsPrefixAndClassNameOnlyProps {
   variant?: string;
   responsive?: boolean | string;
 }
-
-type Table = BsPrefixRefForwardingComponent<'table', TableProps>;
 
 const propTypes = {
   /**
@@ -28,8 +25,9 @@ const propTypes = {
 
   /**
    * Adds zebra-striping to any table row within the `<tbody>`.
+   * Use `columns` to add zebra-striping to any table column.
    */
-  striped: PropTypes.bool,
+  striped: PropTypes.oneOfType([PropTypes.bool, PropTypes.string]),
 
   /**
    * Adds borders on all sides of the table and cells.
@@ -70,7 +68,7 @@ const propTypes = {
   responsive: PropTypes.oneOfType([PropTypes.bool, PropTypes.string]),
 };
 
-const Table: Table = React.forwardRef<HTMLTableElement, TableProps>(
+const Table = React.forwardRef<HTMLTableElement, TableProps>(
   (
     {
       bsPrefix,
@@ -83,16 +81,20 @@ const Table: Table = React.forwardRef<HTMLTableElement, TableProps>(
       variant,
       responsive,
       ...props
-    }: TableProps,
+    },
     ref,
   ) => {
     const decoratedBsPrefix = useBootstrapPrefix(bsPrefix, 'table');
+
     const classes = classNames(
       className,
       decoratedBsPrefix,
       variant && `${decoratedBsPrefix}-${variant}`,
       size && `${decoratedBsPrefix}-${size}`,
-      striped && `${decoratedBsPrefix}-striped`,
+      striped &&
+        `${decoratedBsPrefix}-${
+          typeof striped === 'string' ? `striped-${striped}` : 'striped'
+        }`,
       bordered && `${decoratedBsPrefix}-bordered`,
       borderless && `${decoratedBsPrefix}-borderless`,
       hover && `${decoratedBsPrefix}-hover`,

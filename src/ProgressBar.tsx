@@ -1,20 +1,21 @@
 import classNames from 'classnames';
-import React, { cloneElement } from 'react';
+import * as React from 'react';
+import { cloneElement } from 'react';
 import PropTypes from 'prop-types';
 
 import { useBootstrapPrefix } from './ThemeProvider';
 
 import { map } from './ElementChildren';
-import { BsPrefixPropsWithChildren } from './helpers';
+import { BsPrefixProps } from './helpers';
 
 export interface ProgressBarProps
   extends React.HTMLAttributes<HTMLDivElement>,
-    BsPrefixPropsWithChildren {
+    BsPrefixProps {
   min?: number;
   now?: number;
   max?: number;
   label?: React.ReactNode;
-  srOnly?: boolean;
+  visuallyHidden?: boolean;
   striped?: boolean;
   animated?: boolean;
   variant?: 'success' | 'danger' | 'warning' | 'info' | string;
@@ -24,7 +25,7 @@ export interface ProgressBarProps
 const ROUND_PRECISION = 1000;
 
 /**
- * Validate that children, if any, are instances of `<ProgressBar>`.
+ * Validate that children, if any, are instances of `ProgressBar`.
  */
 function onlyProgressBar(props, propName, componentName): Error | null {
   const children = props[propName];
@@ -45,6 +46,7 @@ function onlyProgressBar(props, propName, componentName): Error | null {
      *
      * see https://github.com/gaearon/react-hot-loader#checking-element-types
      */
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define
     const element = <ProgressBar />;
     if (child.type === element.type) return;
 
@@ -86,7 +88,7 @@ const propTypes = {
   /**
    * Hide's the label visually.
    */
-  srOnly: PropTypes.bool,
+  visuallyHidden: PropTypes.bool,
 
   /**
    * Uses a gradient to create a striped effect.
@@ -122,15 +124,6 @@ const propTypes = {
   isChild: PropTypes.bool,
 };
 
-const defaultProps = {
-  min: 0,
-  max: 100,
-  animated: false,
-  isChild: false,
-  srOnly: false,
-  striped: false,
-};
-
 function getPercentage(now, min, max) {
   const percentage = ((now - min) / (max - min)) * 100;
   return Math.round(percentage * ROUND_PRECISION) / ROUND_PRECISION;
@@ -142,7 +135,7 @@ function renderProgressBar(
     now,
     max,
     label,
-    srOnly,
+    visuallyHidden,
     striped,
     animated,
     className,
@@ -168,7 +161,11 @@ function renderProgressBar(
       aria-valuemin={min}
       aria-valuemax={max}
     >
-      {srOnly ? <span className="sr-only">{label}</span> : label}
+      {visuallyHidden ? (
+        <span className="visually-hidden">{label}</span>
+      ) : (
+        label
+      )}
     </div>
   );
 }
@@ -176,7 +173,16 @@ function renderProgressBar(
 renderProgressBar.propTypes = propTypes;
 
 const ProgressBar = React.forwardRef<HTMLDivElement, ProgressBarProps>(
-  ({ isChild, ...props }: ProgressBarProps, ref) => {
+  ({ isChild = false, ...rest }: ProgressBarProps, ref) => {
+    const props = {
+      min: 0,
+      max: 100,
+      animated: false,
+      visuallyHidden: false,
+      striped: false,
+      ...rest,
+    };
+
     props.bsPrefix = useBootstrapPrefix(props.bsPrefix, 'progress');
 
     if (isChild) {
@@ -188,7 +194,7 @@ const ProgressBar = React.forwardRef<HTMLDivElement, ProgressBarProps>(
       now,
       max,
       label,
-      srOnly,
+      visuallyHidden,
       striped,
       animated,
       bsPrefix,
@@ -212,7 +218,7 @@ const ProgressBar = React.forwardRef<HTMLDivElement, ProgressBarProps>(
                 now,
                 max,
                 label,
-                srOnly,
+                visuallyHidden,
                 striped,
                 animated,
                 bsPrefix,
@@ -227,6 +233,5 @@ const ProgressBar = React.forwardRef<HTMLDivElement, ProgressBarProps>(
 
 ProgressBar.displayName = 'ProgressBar';
 ProgressBar.propTypes = propTypes;
-ProgressBar.defaultProps = defaultProps;
 
 export default ProgressBar;

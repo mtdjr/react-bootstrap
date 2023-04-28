@@ -1,20 +1,17 @@
-import React from 'react';
+import * as React from 'react';
 import PropTypes from 'prop-types';
-
-import Button, { ButtonType } from './Button';
+import { ButtonType } from '@restart/ui/Button';
+import Button from './Button';
 import ButtonGroup from './ButtonGroup';
 import Dropdown, { DropdownProps } from './Dropdown';
-import { alignPropType, AlignType } from './DropdownMenu';
 import { PropsFromToggle } from './DropdownToggle';
-import { BsPrefixPropsWithChildren } from './helpers';
+import { BsPrefixProps } from './helpers';
+import { alignPropType } from './types';
 
 export interface SplitButtonProps
-  extends DropdownProps,
-    Omit<React.HTMLAttributes<HTMLElement>, 'onSelect' | 'title' | 'id'>,
+  extends Omit<DropdownProps, 'title'>,
     PropsFromToggle,
-    BsPrefixPropsWithChildren {
-  id: string | number;
-  menuAlign?: AlignType;
+    BsPrefixProps {
   menuRole?: string;
   renderMenuOnMount?: boolean;
   rootCloseEvent?: 'click' | 'mousedown';
@@ -22,15 +19,16 @@ export interface SplitButtonProps
   title: React.ReactNode;
   toggleLabel?: string;
   type?: ButtonType;
+  flip?: boolean;
 }
 
 const propTypes = {
   /**
    * An html id attribute for the Toggle button, necessary for assistive technologies, such as screen readers.
-   * @type {string|number}
+   * @type {string}
    * @required
    */
-  id: PropTypes.any,
+  id: PropTypes.string,
 
   /**
    * Accessible label for the toggle; the value of `title` if not specified.
@@ -56,13 +54,13 @@ const propTypes = {
   disabled: PropTypes.bool,
 
   /**
-   * Aligns the dropdown menu responsively.
+   * Aligns the dropdown menu.
    *
    * _see [DropdownMenu](#dropdown-menu-props) for more details_
    *
-   * @type {"left"|"right"|{ sm: "left"|"right" }|{ md: "left"|"right" }|{ lg: "left"|"right" }|{ xl: "left"|"right"} }
+   * @type {"start"|"end"|{ sm: "start"|"end" }|{ md: "start"|"end" }|{ lg: "start"|"end" }|{ xl: "start"|"end"}|{ xxl: "start"|"end"} }
    */
-  menuAlign: alignPropType,
+  align: alignPropType,
 
   /** An ARIA accessible role applied to the Menu component. When set to 'menu', The dropdown */
   menuRole: PropTypes.string,
@@ -77,17 +75,19 @@ const propTypes = {
    */
   rootCloseEvent: PropTypes.string,
 
+  /**
+   * Allow Dropdown to flip in case of an overlapping on the reference element. For more information refer to
+   * Popper.js's flip [docs](https://popper.js.org/docs/v2/modifiers/flip/).
+   *
+   */
+  flip: PropTypes.bool,
+
   /** @ignore */
   bsPrefix: PropTypes.string,
   /** @ignore */
   variant: PropTypes.string,
   /** @ignore */
   size: PropTypes.string,
-};
-
-const defaultProps = {
-  toggleLabel: 'Toggle dropdown',
-  type: 'button',
 };
 
 /**
@@ -108,16 +108,16 @@ const SplitButton = React.forwardRef<HTMLElement, SplitButtonProps>(
       size,
       variant,
       title,
-      type,
-      toggleLabel,
+      type = 'button',
+      toggleLabel = 'Toggle dropdown',
       children,
       onClick,
       href,
       target,
-      menuAlign,
       menuRole,
       renderMenuOnMount,
       rootCloseEvent,
+      flip,
       ...props
     },
     ref,
@@ -137,20 +137,20 @@ const SplitButton = React.forwardRef<HTMLElement, SplitButtonProps>(
       </Button>
       <Dropdown.Toggle
         split
-        id={id ? id.toString() : undefined}
+        id={id}
         size={size}
         variant={variant}
         disabled={props.disabled}
         childBsPrefix={bsPrefix}
       >
-        <span className="sr-only">{toggleLabel}</span>
+        <span className="visually-hidden">{toggleLabel}</span>
       </Dropdown.Toggle>
 
       <Dropdown.Menu
-        align={menuAlign}
         role={menuRole}
         renderOnMount={renderMenuOnMount}
         rootCloseEvent={rootCloseEvent}
+        flip={flip}
       >
         {children}
       </Dropdown.Menu>
@@ -159,7 +159,6 @@ const SplitButton = React.forwardRef<HTMLElement, SplitButtonProps>(
 );
 
 SplitButton.propTypes = propTypes as any;
-SplitButton.defaultProps = defaultProps;
 SplitButton.displayName = 'SplitButton';
 
 export default SplitButton;

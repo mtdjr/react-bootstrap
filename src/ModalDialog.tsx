@@ -1,15 +1,23 @@
 import classNames from 'classnames';
-import React from 'react';
+import * as React from 'react';
 import PropTypes from 'prop-types';
 
 import { useBootstrapPrefix } from './ThemeProvider';
 
-import { BsPrefixPropsWithChildren } from './helpers';
+import { BsPrefixProps } from './helpers';
 
 export interface ModalDialogProps
   extends React.HTMLAttributes<HTMLDivElement>,
-    BsPrefixPropsWithChildren {
+    BsPrefixProps {
   size?: 'sm' | 'lg' | 'xl';
+  fullscreen?:
+    | true
+    | string
+    | 'sm-down'
+    | 'md-down'
+    | 'lg-down'
+    | 'xl-down'
+    | 'xxl-down';
   centered?: boolean;
   scrollable?: boolean;
   contentClassName?: string;
@@ -23,9 +31,17 @@ const propTypes = {
   /**
    * Render a large, extra large or small modal.
    *
-   * @type ('sm'|'lg','xl')
+   * @type ('sm'|'lg'|'xl')
    */
   size: PropTypes.string,
+
+  /**
+   * Renders a fullscreen modal. Specifying a breakpoint will render the modal
+   * as fullscreen __below__ the breakpoint size.
+   *
+   * @type (true|'sm-down'|'md-down'|'lg-down'|'xl-down'|'xxl-down')
+   */
+  fullscreen: PropTypes.oneOfType([PropTypes.bool, PropTypes.string]),
 
   /**
    * Specify whether the Component should be vertically centered
@@ -46,6 +62,7 @@ const ModalDialog = React.forwardRef<HTMLDivElement, ModalDialogProps>(
       contentClassName,
       centered,
       size,
+      fullscreen,
       children,
       scrollable,
       ...props
@@ -54,6 +71,11 @@ const ModalDialog = React.forwardRef<HTMLDivElement, ModalDialogProps>(
   ) => {
     bsPrefix = useBootstrapPrefix(bsPrefix, 'modal');
     const dialogClass = `${bsPrefix}-dialog`;
+
+    const fullScreenClass =
+      typeof fullscreen === 'string'
+        ? `${bsPrefix}-fullscreen-${fullscreen}`
+        : `${bsPrefix}-fullscreen`;
 
     return (
       <div
@@ -65,6 +87,7 @@ const ModalDialog = React.forwardRef<HTMLDivElement, ModalDialogProps>(
           size && `${bsPrefix}-${size}`,
           centered && `${dialogClass}-centered`,
           scrollable && `${dialogClass}-scrollable`,
+          fullscreen && fullScreenClass,
         )}
       >
         <div className={classNames(`${bsPrefix}-content`, contentClassName)}>

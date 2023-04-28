@@ -1,37 +1,34 @@
-import React, { useRef } from 'react';
+import * as React from 'react';
+import { useEffect, useRef, useState } from 'react';
 import classNames from 'classnames';
 import PropTypes from 'prop-types';
 import BaseOverlay, {
   OverlayProps as BaseOverlayProps,
-} from 'react-overlays/Overlay';
-import safeFindDOMNode from 'react-overlays/safeFindDOMNode';
+  OverlayArrowProps,
+} from '@restart/ui/Overlay';
+import { State } from '@restart/ui/usePopper';
 import { componentOrElement, elementType } from 'prop-types-extra';
-import usePopperMarginModifiers from './usePopperMarginModifiers';
+import useEventCallback from '@restart/hooks/useEventCallback';
+import useIsomorphicEffect from '@restart/hooks/useIsomorphicEffect';
+import useMergedRefs from '@restart/hooks/useMergedRefs';
+import useOverlayOffset from './useOverlayOffset';
 import Fade from './Fade';
 import { TransitionType } from './helpers';
-
-export type Placement = import('react-overlays/usePopper').Placement;
-
-export type ArrowProps = {
-  ref: React.RefCallback<HTMLElement>;
-  style: React.CSSProperties;
-};
+import { Placement, PopperRef, RootCloseEvent } from './types';
+import safeFindDOMNode from './safeFindDOMNode';
 
 export interface OverlayInjectedProps {
   ref: React.RefCallback<HTMLElement>;
   style: React.CSSProperties;
   'aria-labelledby'?: string;
 
-  arrowProps: ArrowProps;
+  arrowProps: Partial<OverlayArrowProps>;
 
   show: boolean;
-  placement: Placement;
-  popper: {
-    state: any;
-    outOfBoundaries: boolean;
-    placement: Placement;
-    scheduleUpdate: () => void;
-  };
+  placement: Placement | undefined;
+  popper: PopperRef;
+  hasDoneInitialMeasure?: boolean;
+
   [prop: string]: any;
 }
 
@@ -40,10 +37,11 @@ export type OverlayChildren =
   | ((injected: OverlayInjectedProps) => React.ReactNode);
 
 export interface OverlayProps
-  extends Omit<BaseOverlayProps, 'children' | 'transition'> {
+  extends Omit<BaseOverlayProps, 'children' | 'transition' | 'rootCloseEvent'> {
   children: OverlayChildren;
   transition?: TransitionType;
   placement?: Placement;
+  rootCloseEvent?: RootCloseEvent;
 }
 
 const propTypes = {
@@ -77,7 +75,7 @@ const propTypes = {
   /**
    * Specify event for triggering a "root close" toggle.
    */
-  rootCloseEvent: PropTypes.oneOf(['click', 'mousedown']),
+  rootCloseEvent: PropTypes.oneOf<RootCloseEvent>(['click', 'mousedown']),
 
   /**
    * A callback invoked by the overlay when it wishes to be hidden. Required if
@@ -124,7 +122,7 @@ const propTypes = {
   /**
    * The placement of the Overlay in relation to it's `target`.
    */
-  placement: PropTypes.oneOf([
+  placement: PropTypes.oneOf<Placement>([
     'auto-start',
     'auto',
     'auto-end',
@@ -143,13 +141,6 @@ const propTypes = {
   ]),
 };
 
-const defaultProps = {
-  transition: Fade,
-  rootClose: false,
-  show: false,
-  placement: 'top',
-};
-
 function wrapRefs(props, arrowProps) {
   const { ref } = props;
   const { ref: aRef } = arrowProps;
@@ -159,77 +150,108 @@ function wrapRefs(props, arrowProps) {
     aRef.__wrapped || (aRef.__wrapped = (r) => aRef(safeFindDOMNode(r)));
 }
 
-function Overlay({
-  children: overlay,
-  transition,
-  popperConfig = {},
-  ...outerProps
-}: OverlayProps) {
-  const popperRef = useRef({});
-  const [ref, marginModifiers] = usePopperMarginModifiers();
+const Overlay = React.forwardRef<HTMLElement, OverlayProps>(
+  (
+    {
+      children: overlay,
+      transition = Fade,
+      popperConfig = {},
+      rootClose = false,
+      placement = 'top',
+      show: outerShow = false,
+      ...outerProps
+    },
+    outerRef,
+  ) => {
+    const popperRef = useRef<Partial<PopperRef>>({});
+    const [firstRenderedState, setFirstRenderedState] = useState<State | null>(
+      null,
+    );
+    const [ref, modifiers] = useOverlayOffset(outerProps.offset);
+    const mergedRef = useMergedRefs(outerRef, ref);
 
-  const actualTransition = transition === true ? Fade : transition || null;
+    const actualTransition =
+      transition === true ? Fade : transition || undefined;
 
-  return (
-    <BaseOverlay
-      {...outerProps}
-      ref={ref}
-      popperConfig={{
-        ...popperConfig,
-        modifiers: marginModifiers.concat(popperConfig.modifiers || []),
-      }}
-      transition={actualTransition as any}
-    >
-      {({
-        props: overlayProps,
-        arrowProps,
-        show,
-        update,
-        forceUpdate: _,
-        placement,
-        state,
-        ...props
-      }) => {
-        wrapRefs(overlayProps, arrowProps);
-        const popper = Object.assign(popperRef.current, {
-          state,
-          scheduleUpdate: update,
-          placement,
-          outOfBoundaries:
-            state?.modifiersData.hide?.isReferenceHidden || false,
-        });
+    const handleFirstUpdate = useEventCallback((state) => {
+      setFirstRenderedState(state);
+      popperConfig?.onFirstUpdate?.(state);
+    });
 
-        if (typeof overlay === 'function')
-          return overlay({
-            ...props,
-            ...overlayProps,
-            placement,
-            show,
-            popper,
-            arrowProps,
+    useIsomorphicEffect(() => {
+      if (firstRenderedState) {
+        popperRef.current.scheduleUpdate?.();
+      }
+    }, [firstRenderedState]);
+
+    useEffect(() => {
+      if (!outerShow) {
+        setFirstRenderedState(null);
+      }
+    }, [outerShow]);
+
+    return (
+      <BaseOverlay
+        {...outerProps}
+        ref={mergedRef}
+        popperConfig={{
+          ...popperConfig,
+          modifiers: modifiers.concat(popperConfig.modifiers || []),
+          onFirstUpdate: handleFirstUpdate,
+        }}
+        transition={actualTransition}
+        rootClose={rootClose}
+        placement={placement}
+        show={outerShow}
+      >
+        {(overlayProps, { arrowProps, popper: popperObj, show }) => {
+          wrapRefs(overlayProps, arrowProps);
+          // Need to get placement from popper object, handling case when overlay is flipped using 'flip' prop
+          const updatedPlacement = popperObj?.placement;
+          const popper = Object.assign(popperRef.current, {
+            state: popperObj?.state,
+            scheduleUpdate: popperObj?.update,
+            placement: updatedPlacement,
+            outOfBoundaries:
+              popperObj?.state?.modifiersData.hide?.isReferenceHidden || false,
+            strategy: popperConfig.strategy,
           });
 
-        return React.cloneElement(overlay, {
-          ...props,
-          ...overlayProps,
-          placement,
-          arrowProps,
-          popper,
-          className: classNames(
-            overlay.props.className,
-            !transition && show && 'show',
-          ),
-          style: {
-            ...overlay.props.style,
-            ...overlayProps.style,
-          },
-        });
-      }}
-    </BaseOverlay>
-  );
-}
+          const hasDoneInitialMeasure = !!firstRenderedState;
 
+          if (typeof overlay === 'function')
+            return overlay({
+              ...overlayProps,
+              placement: updatedPlacement,
+              show,
+              ...(!transition && show && { className: 'show' }),
+              popper,
+              arrowProps,
+              hasDoneInitialMeasure,
+            });
+
+          return React.cloneElement(overlay as React.ReactElement, {
+            ...overlayProps,
+            placement: updatedPlacement,
+            arrowProps,
+            popper,
+            hasDoneInitialMeasure,
+            className: classNames(
+              (overlay as React.ReactElement).props.className,
+              !transition && show && 'show',
+            ),
+            style: {
+              ...(overlay as React.ReactElement).props.style,
+              ...overlayProps.style,
+            },
+          });
+        }}
+      </BaseOverlay>
+    );
+  },
+);
+
+Overlay.displayName = 'Overlay';
 Overlay.propTypes = propTypes;
-Overlay.defaultProps = defaultProps;
 
 export default Overlay;
